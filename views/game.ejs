@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Who knows answer?</title>
+        <link rel="stylesheet" href="/game-css.css">
+        <style>
+            #timer {
+                display: none;
+            }
+            #startGameBtn {
+                display: none;
+            }
+            #answered {
+                display: none;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>部屋番号: <%= roomID %></h1>
+            <h3>ユーザー名: <%= username %></h3>
+            <h3 id="occupants">参加人数: 0</h3>
+            <h1 id="role"></h1>
+            <h2 id="word"></h2>
+            <h2 id="timer">5:00</h2>
+            <ul id="user-list"></ul>
+            <button id="start-game">役職・単語を決める</button>
+            <button id="startGameBtn">ゲームを開始する</button>
+            <button id="answered">答えが出た！</button>
+            <form id="leave-room-form">
+                <button type="submit">部屋を出る</button>
+            </form>
+        </div>
+        <script src="/socket.io/socket.io.js"></script>
+        <script>
+            const socket = io();
+            const roomID = "<%= roomID %>";
+            const username = "<%= username %>";
+            const userID = "<%= userID %>";
+
+            let users = 0;
+            let timeLeft = 300;
+
+            const timerElement = document.getElementById("timer");
+
+            socket.emit("join-room", {roomID, userID, username});
+
+            
+            socket.on("occupants", (data) => {
+                document.getElementById("occupants").innerText = "参加人数: " + data.occupants;
+                const userList = document.getElementById("user-list");
+                userList.innerHTML = "";
+                users = 0;
+                for (const id in data.users) {
+                    const li = document.createElement("li");
+                    li.textContent = data.users[id];
+                    userList.appendChild(li);
+                    users += 1;
+                }
+            });
+
+            document.getElementById("leave-room-form").addEventListener("submit", (event) => {
+                event.preventDefault();
+                //socket.emit("leave-room", roomID);
+                window.location.href = "/";
+            });
+
+            window.addEventListener("beforeunload", () => {
+                socket.emit("leave-room", { roomID, userID });
+            });
+
+            document.getElementById("start-game").addEventListener("click", () => {
+                if (users < 4) {
+                    alert("4人以上のプレイヤーが必要です");
+                } else {
+                    //ゲームのスタート処理
+                    socket.emit("start-game", roomID);
+                }
+            });
+
+            socket.on("game-started", (data) => {
+                if(data.error){
+                    alert(data.error);
+                } else {
+                    let gamemaster = data.gamemaster;
+                    let insider = data.insider;
+                    let word = data.target;
+                    if(userID === gamemaster){
+                        //役職、単語、タイマーの表示
+                        document.getElementById("role").innerText = "ゲームマスター";
+                        document.getElementById("word").innerText = "単語: " + word;
+                        document.getElementById("timer").style.display = "block";
+                        document.getElementById("startGameBtn").style.display = "block";
+                        document.getElementById("start-game").style.display = "none";
+                        document.getElementById("leave-room-form").style.display = "none";
+                    } else if(userID === insider){
+                        //役職、単語、タイマーの表示
+                        document.getElementById("role").innerText = "インサイダー";
+                        document.getElementById("word").innerText = "単語: " + word;
+                        document.getElementById("timer").style.display = "block";
+                        document.getElementById("start-game").style.display = "none";
+                        document.getElementById("leave-room-form").style.display = "none";
+                    } else {
+                        //役職、単語、タイマーの表示
+                        document.getElementById("role").innerText = "一般市民";
+                        document.getElementById("word").innerText = "";
+                        document.getElementById("timer").style.display = "block";
+                        document.getElementById("start-game").style.display = "none";
+                        document.getElementById("leave-room-form").style.display = "none";
+                    }
+                }
+            });
+
+            document.getElementById("startGameBtn").addEventListener("click", () => {
+                //全員のタイマーを開始させるためにサーバーに通知
+                document.getElementById("startGameBtn").style.display = "none";
+                document.getElementById("answered").style.display = "block";
+                socket.emit("start-timer", {roomID: roomID, start: 300});
+            });
+
+            socket.on("timer-started", (time) => {
+                if(time < 0){
+                    timerElement.innerText = "0:00";
+                    //5分経過で全員負け
+                    //タイマーを止めるためにサーバーに通知
+                    socket.emit("stop-timer", roomID);
+                }
+                const minutes = Math.floor(time / 60);
+                const seconds = time % 60;
+                timerElement.innerText = `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
+                timeLeft = time;
+            });
+
+            socket.on("timer-stopped", () => {
+                //時間超過で全員負け
+                alert("答えが出ませんでした。敗北です。");
+
+                document.getElementById("timer").style.display = "none";
+                document.getElementById("startGameBtn").style.display = "none";
+                document.getElementById("answered").style.display = "none";
+                document.getElementById("start-game").style.display = "block";
+                document.getElementById("leave-room-form").style.display = "block";
+                document.getElementById("role").innerText = "";
+                document.getElementById("word").innerText = "";
+                timerElement.innerText = "5:00";
+                timeLeft = 300;
+            });
+
+            document.getElementById("answered").addEventListener("click", () => {
+                //答えが出たことをサーバーに通知
+                document.getElementById("answered").style.display = "none";
+                socket.emit("answer-found", {roomID: roomID, start: 300-timeLeft});
+            });
+
+            socket.on("conf-timer-started", (time) => {
+                //話し合いのタイマーを開始
+                if(time < 0){
+                    timerElement.innerText = "0:00";
+                    //話し合いのタイマーを止めるためにサーバーに通知
+                    socket.emit("stop-conf-timer", roomID);
+                }
+                const minutes = Math.floor(time / 60);
+                const seconds = time % 60;
+                timerElement.innerText = `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
+            });
+
+            socket.on("conf-timer-stopped", () => {
+                //話し合いの時間が終了
+                //投票の開始(今は初期化のみ)
+                alert("話し合いの時間が終了しました。投票を開始してください。");
+
+                document.getElementById("timer").style.display = "none";
+                document.getElementById("startGameBtn").style.display = "none";
+                document.getElementById("answered").style.display = "none";
+                document.getElementById("start-game").style.display = "block";
+                document.getElementById("leave-room-form").style.display = "block";
+                document.getElementById("role").innerText = "";
+                document.getElementById("word").innerText = "";
+                timerElement.innerText = "5:00";
+                timeLeft = 300;
+            });
+        </script>
+    </body>
+</html>

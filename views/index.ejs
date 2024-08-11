@@ -1,0 +1,82 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Who knows answer?</title>
+        <link rel="stylesheet" href="/style.css">
+    </head>
+    <body>
+        <div class="center">
+            <div class="Form-Item">
+                <form id="user-form">
+                    <p class="Form-Item-Label-Required require">必須</p>
+                    <label for="username">ユーザー名</label><br>
+                    <input type="text" id="username" name="username" class="Form-Item-Input" required>
+                </form>
+            </div>
+        </div>
+        <input id="block-01" type="radio" class="toggle" name="checker">
+        <label class="Label" for="block-01">Create a new room</label>
+        <div class="content">
+            <div class="center">
+                <div class="Form-Item">
+                    <form id="create-room-form" action="/create-room" method="post" onsubmit='return addUsername(this)'>
+                        <p class="Form-Item-Label-Required optimal">任意</p>
+                        <label for="password">パスワード</label><br>
+                        <input type="text" id="password" name="password" class="Form-Item-Input" size="4"><br>
+                        <input type="submit" value="新たな部屋を作成する" class="Form-Btn">
+                    </form>
+                </div>
+            </div>
+        </div>
+        <input id="block-02" type="radio" class="toggle" name="checker">
+        <label class="Label" for="block-02">Join a room</label>
+        <div class="content">
+            <div class="center">
+                <div class="Form-Item">
+                    <form id="join-room-form" action="/join-room" method="post" onsubmit='return addUsername(this)'>
+                        <p class="Form-Item-Label-Required require">必須</p>
+                        <label for="roomID">部屋番号</label><br>
+                        <input type="text" id="roomID" name="roomID" class="Form-Item-Input" size="6" required><br>
+                        <p class="Form-Item-Label-Required optimal">任意</p>
+                        <label for="password">パスワード</label><br>
+                        <input type="text" id="password" name="password" class="Form-Item-Input" size="4"><br>
+                        <input type="submit" value="入室する" class="Form-Btn">
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            function addUsername(form) {
+                const username = document.getElementById("username").value.trim();
+                if(!username) {
+                    alert("Usernameを入力してください");
+                    return false;
+                }
+                let usernameInput = form.querySelector('input[name="username"]');
+                if(!usernameInput) {
+                    usernameInput = document.createElement("input");
+                    usernameInput.type = "hidden";
+                    usernameInput.name = "username";
+                    form.appendChild(usernameInput);
+                }
+                usernameInput.value = username;
+                return true;
+            }
+
+            let lastChecked = null;
+
+            document.querySelectorAll('input[type="radio"]').forEach((radio) => {
+                radio.addEventListener("click", function(event) {
+                    if(lastChecked === radio) {
+                        radio.checked = false;
+                        lastChecked = null;
+                    } else {
+                        lastChecked = radio;
+                    }
+                });
+            });
+        </script>
+    </body>
+</html>
