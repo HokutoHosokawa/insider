@@ -62,6 +62,11 @@ app.post("/join-room", (req, res) => {
     if(room[roomID]) {
         if(room[roomID].password === password) {
             const userID = uuidv4();
+            //ユーザー名が被っているかどうかを確認
+            if(Object.values(room[roomID].users).includes(username)){
+                res.render('joined', {message: "Username already taken", roomID: null, password: null});
+                return;
+            }
             room[roomID].users[userID] = username;
             res.redirect(`/game/${roomID}?username=${username}&userID=${userID}&password=${password}`);
         } else {

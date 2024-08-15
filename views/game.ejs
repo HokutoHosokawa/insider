@@ -25,7 +25,7 @@
             <h1 id="role"></h1>
             <h2 id="word"></h2>
             <h2 id="timer">5:00</h2>
-            <ul id="user-list"></ul>
+            <div id="user-list"></div>
             <button id="start-game">役職・単語を決める</button>
             <button id="startGameBtn">ゲームを開始する</button>
             <button id="answered">答えが出た！</button>
@@ -54,9 +54,22 @@
                 userList.innerHTML = "";
                 users = 0;
                 for (const id in data.users) {
-                    const li = document.createElement("li");
-                    li.textContent = data.users[id];
-                    userList.appendChild(li);
+                    const div_radio = document.createElement("div");
+                    div_radio.className = "radio-btn";
+                    const radios = document.createElement("input");
+                    radios.type = "radio";
+                    radios.name = "vote";
+                    radios.value = data.users[id];
+                    radios.id = data.users[id];
+                    radios.disabled = true;
+                    div_radio.appendChild(radios);
+                    const label = document.createElement("label");
+                    label.htmlFor = data.users[id];
+                    const span = document.createElement("span");
+                    span.innerText = data.users[id];
+                    label.appendChild(span);
+                    div_radio.appendChild(label);
+                    userList.appendChild(div_radio);
                     users += 1;
                 }
             });
