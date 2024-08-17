@@ -15,6 +15,12 @@
             #answered {
                 display: none;
             }
+            #vote {
+                display: none;
+            }
+            #vote2 {
+                display: none;
+            }
         </style>
     </head>
     <body>
@@ -26,9 +32,12 @@
             <h2 id="word"></h2>
             <h2 id="timer">5:00</h2>
             <div id="user-list"></div>
+            <div id="log-container"></div>
             <button id="start-game">役職・単語を決める</button>
             <button id="startGameBtn">ゲームを開始する</button>
             <button id="answered">答えが出た！</button>
+            <button id="vote">投票する</button>
+            <button id="vote2">投票する</button>
             <form id="leave-room-form">
                 <button type="submit">部屋を出る</button>
             </form>
@@ -45,6 +54,70 @@
 
             const timerElement = document.getElementById("timer");
 
+            function add_log(message, color = "black", bold = false) {
+                const log_container = document.getElementById("log-container");
+                const log = document.createElement("div");
+                const text = document.createElement("span");
+                const current_time = new Date();
+                const time = document.createElement("span");
+                time.className = "time";
+                text.className = "log-text";
+                log.className = "log";
+                time.innerText = ('0' + current_time.getHours()).slice(-2) + ":" + ('0' + current_time.getMinutes()).slice(-2) + ":" + ('0' + current_time.getSeconds()).slice(-2);
+                text.innerText = message;
+                text.style.color = color;
+                if (bold) {
+                    text.style.fontWeight = "bold";
+                }
+                log.appendChild(time);
+                log.appendChild(text);
+                log_container.appendChild(log);
+            }
+
+            function show_member(gameMaster, insider, occupants) {
+                let text = "";
+                let finish_first_civilian = false;
+                text += "ゲームマスター：" + occupants[gameMaster] + "\n";
+                text += "　インサイダー：" + occupants[insider] + "\n";
+                for (const id in occupants) {
+                    if(id === gameMaster || id === insider){
+                        continue;
+                    } else {
+                        if(!finish_first_civilian){
+                            text += "　　　一般市民：" + occupants[id] + "\n";
+                            finish_first_civilian = true;
+                        } else {
+                            text += "　　　　　　　　" + occupants[id] + "\n";
+                        }
+                    }
+                }
+                //textから最後の改行を削除
+                text = text.slice(0, -1);
+                add_log(text);
+            }
+
+            function reset_all() {
+                const userList = document.getElementsByClassName("user-name");
+                for (let i = 0; i < userList.length; i++) {
+                    userList[i].closest(".radio-btn").style.backgroundColor = "#dbebf8";
+                }
+                const vote_radio = document.getElementsByName("vote");
+                for (let i = 0; i < vote_radio.length; i++) {
+                    vote_radio[i].disabled = true;
+                    vote_radio[i].checked = false;
+                }
+                document.getElementById("timer").style.display = "none";
+                document.getElementById("startGameBtn").style.display = "none";
+                document.getElementById("answered").style.display = "none";
+                document.getElementById("vote").style.display = "none";
+                document.getElementById("start-game").style.display = "block";
+                document.getElementById("leave-room-form").style.display = "block";
+                document.getElementById("role").innerText = "";
+                document.getElementById("word").innerText = "";
+                timerElement.innerText = "5:00";
+                timeLeft = 300;
+            }
+
             socket.emit("join-room", {roomID, userID, username});
 
             
@@ -54,23 +127,29 @@
                 userList.innerHTML = "";
                 users = 0;
                 for (const id in data.users) {
-                    const div_radio = document.createElement("div");
+                    let div_radio = document.createElement("div");
                     div_radio.className = "radio-btn";
-                    const radios = document.createElement("input");
+                    let radios = document.createElement("input");
                     radios.type = "radio";
                     radios.name = "vote";
                     radios.value = data.users[id];
                     radios.id = data.users[id];
                     radios.disabled = true;
                     div_radio.appendChild(radios);
-                    const label = document.createElement("label");
+                    let label = document.createElement("label");
                     label.htmlFor = data.users[id];
-                    const span = document.createElement("span");
+                    let span = document.createElement("span");
                     span.innerText = data.users[id];
+                    span.className = "user-name";
                     label.appendChild(span);
                     div_radio.appendChild(label);
                     userList.appendChild(div_radio);
                     users += 1;
+                }
+                if(data.state === "join"){
+                    add_log(data.userName + "さんが入室しました");
+                }else if (data.state === "leave"){
+                    add_log(data.userName + "さんが退室しました");
                 }
             });
 
@@ -124,6 +203,12 @@
                         document.getElementById("leave-room-form").style.display = "none";
                     }
                 }
+                const userList = document.getElementsByClassName("user-name");
+                for (let i = 0; i < userList.length; i++) {
+                    if(userList[i].innerText === data.occupants[data.gamemaster]){
+                        userList[i].closest(".radio-btn").style.backgroundColor = "#f8ebdb";
+                    }
+                }
             });
 
             document.getElementById("startGameBtn").addEventListener("click", () => {
@@ -134,7 +219,7 @@
             });
 
             socket.on("timer-started", (time) => {
-                if(time < 0){
+                if(time < 0 && document.getElementById("role").innerText === "ゲームマスター"){
                     timerElement.innerText = "0:00";
                     //5分経過で全員負け
                     //タイマーを止めるためにサーバーに通知
@@ -146,19 +231,13 @@
                 timeLeft = time;
             });
 
-            socket.on("timer-stopped", () => {
+            socket.on("timer-stopped", (data) => {
+                const {gameMaster, insider, occupants} = data;
                 //時間超過で全員負け
-                alert("答えが出ませんでした。敗北です。");
+                add_log("時間切れです。全員負けです。");
+                show_member(gameMaster, insider, occupants);
 
-                document.getElementById("timer").style.display = "none";
-                document.getElementById("startGameBtn").style.display = "none";
-                document.getElementById("answered").style.display = "none";
-                document.getElementById("start-game").style.display = "block";
-                document.getElementById("leave-room-form").style.display = "block";
-                document.getElementById("role").innerText = "";
-                document.getElementById("word").innerText = "";
-                timerElement.innerText = "5:00";
-                timeLeft = 300;
+                reset_all();
             });
 
             document.getElementById("answered").addEventListener("click", () => {
@@ -167,9 +246,13 @@
                 socket.emit("answer-found", {roomID: roomID, start: 300-timeLeft});
             });
 
+            socket.on("found-answer", () => {
+                add_log("答えが見つかりました。会議を開始します。", "red", false);
+            });
+
             socket.on("conf-timer-started", (time) => {
                 //話し合いのタイマーを開始
-                if(time < 0){
+                if(time < 0 && document.getElementById("role").innerText === "ゲームマスター"){
                     timerElement.innerText = "0:00";
                     //話し合いのタイマーを止めるためにサーバーに通知
                     socket.emit("stop-conf-timer", roomID);
@@ -179,20 +262,139 @@
                 timerElement.innerText = `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
             });
 
-            socket.on("conf-timer-stopped", () => {
+            socket.on("conf-timer-stopped", (data) => {
+                gameMaster = data.gameMaster;
                 //話し合いの時間が終了
                 //投票の開始(今は初期化のみ)
-                alert("話し合いの時間が終了しました。投票を開始してください。");
+                //alert("話し合いの時間が終了しました。投票を開始してください。");
+                add_log("会議の時間が終了しました。投票を開始してください。");
+                timerElement.innerText = "0:00";
+                document.getElementById("vote").style.display = "block";
+                const vote_radio = document.getElementsByName("vote");
+                for (let i = 0; i < vote_radio.length; i++) {
+                    if(vote_radio[i].value === data.occupants[gameMaster]){
+                        vote_radio[i].disabled = true;
+                    } else {
+                        vote_radio[i].disabled = false;
+                    }
+                }
+            });
 
-                document.getElementById("timer").style.display = "none";
-                document.getElementById("startGameBtn").style.display = "none";
-                document.getElementById("answered").style.display = "none";
-                document.getElementById("start-game").style.display = "block";
-                document.getElementById("leave-room-form").style.display = "block";
-                document.getElementById("role").innerText = "";
-                document.getElementById("word").innerText = "";
-                timerElement.innerText = "5:00";
-                timeLeft = 300;
+            document.getElementById("vote").addEventListener("click", () => {
+                //投票の開始
+                const vote_radio = document.getElementsByName("vote");
+                let vote_user = "";
+                let target = [];
+                for (let i = 0; i < vote_radio.length; i++) {
+                    if(!vote_radio[i].disabled){
+                        target.push(vote_radio[i].value);
+                    }
+                    if(vote_radio[i].checked){
+                        vote_user = vote_radio[i].value;
+                    }
+                }
+                if(vote_user === ""){
+                    alert("投票先を選択してください");
+                } else {
+                    //投票先をサーバーに通知
+                    document.getElementById("vote").style.display = "none";
+                    socket.emit("vote", {roomID: roomID, vote_user: vote_user, target: target});
+                }
+            });
+
+            socket.on("vote-result", (data) => {
+                const {gameMaster, insider, occupants, vote_result, detail} = data;
+                let detail_text = "";
+                Object.keys(detail).forEach((key) => {
+                    detail_text += key + "さん： " + detail[key] + "票\n";
+                });
+                detail_text.slice(0, -1);
+                add_log(detail_text);
+                if(vote_result.length === 1){
+                    add_log("投票結果: " + vote_result[0] + "さんが選ばれました。", "red", false);
+                    if(vote_result[0] === occupants[insider]){
+                        add_log("市民の勝利です。", "red", true);
+                    } else {
+                        add_log("インサイダーの勝利です。", "red", true);
+                    }
+                    show_member(gameMaster, insider, occupants);
+                    reset_all();
+                } else {
+                    document.getElementById("vote2").style.display = "block";
+                    let text = "投票結果： ";
+                    for (let i = 0; i < vote_result.length; i++) {
+                        text += vote_result[i] + "さん、";
+                    }
+                    text = text.slice(0, -1);
+                    text += "が選ばれました。同数のため再投票です。";
+                    add_log(text, "red", false);
+                    const vote_radio = document.getElementsByName("vote");
+                    for (let i = 0; i < vote_radio.length; i++) {
+                        console.log(vote_radio[i].value);
+                        if(vote_radio[i].value === gameMaster || !vote_result.includes(vote_radio[i].value)){
+                            vote_radio[i].disabled = true;
+                        } else {
+                            vote_radio[i].disabled = false;
+                        }
+                    }
+                }
+            });
+
+            document.getElementById("vote2").addEventListener("click", () => {
+                //再投票の開始
+                const vote_radio = document.getElementsByName("vote");
+                let vote_user = "";
+                let target = [];
+                for (let i = 0; i < vote_radio.length; i++) {
+                    if(!vote_radio[i].disabled){
+                        target.push(vote_radio[i].value);
+                    }
+                    if(vote_radio[i].checked){
+                        vote_user = vote_radio[i].value;
+                    }
+                }
+                if(vote_user === ""){
+                    alert("投票先を選択してください");
+                } else {
+                    //再投票先をサーバーに通知
+                    document.getElementById("vote2").style.display = "none";
+                    socket.emit("revote", {roomID: roomID, vote_user: vote_user, target: target});
+                }
+            });
+
+            socket.on("revote-result", (data) => {
+                const {gameMaster, insider, occupants, vote_result, detail} = data;
+                let detail_text = "";
+                Object.keys(detail).forEach((key) => {
+                    detail_text += key + "さん： " + detail[key] + "票\n";
+                });
+                detail_text.slice(0, -1);
+                add_log(detail_text);
+                if(vote_result.length === 1){
+                    add_log("投票結果: " + vote_result[0] + "さんが選ばれました。", "red", false);
+                    if(vote_result[0] === occupants[insider]){
+                        add_log("市民の勝利です。", "red", true);
+                    } else {
+                        add_log("インサイダーの勝利です。", "red", true);
+                    }
+                    show_member(gameMaster, insider, occupants);
+                    reset_all();
+                } else {
+                    let text = "投票結果： ";
+                    for (let i = 0; i < vote_result.length; i++) {
+                        text += vote_result[i] + "さん、";
+                    }
+                    text = text.slice(0, -1);
+                    text += "が選ばれました。";
+                    add_log(text, "red", false);
+                    if(vote_result.includes(occupants[insider])){
+                        add_log("市民の勝利です。", "red", true);
+                    } else {
+                        add_log("インサイダーの勝利です。", "red", true);
+                    }
+                    show_member(gameMaster, insider, occupants);
+                    reset_all();
+                }
             });
         </script>
     </body>
