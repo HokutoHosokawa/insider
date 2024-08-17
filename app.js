@@ -285,9 +285,7 @@ io.on("connection", (socket) => {
         });
     });
 
-    socket.on("disconnecting", () => {
-        console.log("A user disconnected");
-    });
+    socket.on("disconnecting", () => {});
 });
 
 server.listen(port, () => {
