@@ -190,6 +190,8 @@
                     } else if(userID === insider){
                         //役職、単語、タイマーの表示
                         document.getElementById("role").innerText = "インサイダー";
+                        //文字を赤色にする
+                        document.getElementById("role").style.color = "red";
                         document.getElementById("word").innerText = "単語: " + word;
                         document.getElementById("timer").style.display = "block";
                         document.getElementById("start-game").style.display = "none";
