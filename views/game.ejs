@@ -182,6 +182,7 @@
                     if(userID === gamemaster){
                         //役職、単語、タイマーの表示
                         document.getElementById("role").innerText = "ゲームマスター";
+                        document.getAnimations("role").style.color = "black";
                         document.getElementById("word").innerText = "単語: " + word;
                         document.getElementById("timer").style.display = "block";
                         document.getElementById("startGameBtn").style.display = "block";
@@ -199,6 +200,7 @@
                     } else {
                         //役職、単語、タイマーの表示
                         document.getElementById("role").innerText = "一般市民";
+                        document.getElementById("role").style.color = "black";
                         document.getElementById("word").innerText = "";
                         document.getElementById("timer").style.display = "block";
                         document.getElementById("start-game").style.display = "none";
